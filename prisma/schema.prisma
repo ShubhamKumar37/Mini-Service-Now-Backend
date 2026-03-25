@@ -1,0 +1,271 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  ENGINEER
+  USER
+}
+
+enum TicketStatus {
+  NOT_ASSIGNED
+  IN_PROGRESS
+  HOLD
+  CLOSED
+  REOPENED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FixType {
+  PERMANENT
+  TEMPORARY
+}
+
+enum AlertLevel {
+  NORMAL
+  HIGH
+}
+
+model Otp{
+  id          Int      @id @default(autoincrement())
+  otp         String
+  email       String   
+  expiresAt   DateTime
+
+  @@index([email])
+}
+
+model User {
+  id              Int      @id @default(autoincrement())
+  empId           String?   @unique
+  name            String
+  email           String   @unique
+  password        String
+  profileImage    String?
+  phone           String?
+
+  role            UserRole
+
+  regionId        Int
+  region          Region   @relation(fields: [regionId], references: [id])
+
+  teamId          Int?
+  team            Team?    @relation(fields: [teamId], references: [id])
+
+  departmentId    Int
+  department      Department @relation(fields: [departmentId], references: [id])
+
+  designation   String?
+
+  teamLeadId      Int?
+  teamLead        User?    @relation("UserToUser", fields: [teamLeadId], references: [id])
+  subordinates    User[]   @relation("UserToUser")
+
+  refreshToken    String?
+
+  createdTickets  Ticket[] @relation("TicketCaller")
+  assignedTickets Ticket[] @relation("TicketAssignee")
+
+  comments        Comment[]
+  activities      TicketActivity[]
+
+  favoriteFilters FavoriteFilter[]
+
+  createdAt       DateTime @default(now())
+}
+
+model Region {
+  id        Int      @id @default(autoincrement())
+  name      String
+  description String?
+
+  users     User[]
+  teams     Team[]
+  tickets   Ticket[]
+}
+
+model Team {
+  id        Int      @id @default(autoincrement())
+  name      String
+  description String?
+
+  regionId  Int
+  region    Region   @relation(fields: [regionId], references: [id])
+
+  users     User[]
+  tickets   Ticket[]
+}
+
+model Department {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+
+  users       User[]
+  managers    DepartmentManagers[]
+}
+
+model DepartmentManagers {
+  id           Int        @id @default(autoincrement())
+
+  userId       Int
+  user         User       @relation(fields: [userId], references: [id])
+
+  departmentId Int
+  department   Department @relation(fields: [departmentId], references: [id])
+}
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+
+  tickets     Ticket[]
+}
+
+model Ticket {
+  id                Int      @id @default(autoincrement())
+  ticketNumber      String   @unique
+
+  callerId          Int
+  caller            User     @relation("TicketCaller", fields: [callerId], references: [id])
+
+  assignedToId      Int?
+  assignedTo        User?    @relation("TicketAssignee", fields: [assignedToId], references: [id])
+
+  regionId          Int
+  region            Region   @relation(fields: [regionId], references: [id])
+
+  teamId            Int?
+  team              Team?    @relation(fields: [teamId], references: [id])
+
+  categoryId        Int?
+  category          Category? @relation(fields: [categoryId], references: [id])
+
+  shortDescription  String
+  description       String
+
+  status            TicketStatus
+  priority          TicketPriority
+
+  escalationLevel   Int      @default(0)
+
+  fixType           FixType?
+  fixComment        String?
+
+  parentTicketId    Int?
+  parentTicket      Ticket?  @relation("TicketRelation", fields: [parentTicketId], references: [id])
+  childTickets      Ticket[] @relation("TicketRelation")
+
+  deletedAt         DateTime?
+
+  comments          Comment[]
+  attachments       Attachment[]
+  activities        TicketActivity[]
+  emailLogs         EmailLog[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  completedAt       DateTime?
+}
+
+model Comment {
+  id              Int      @id @default(autoincrement())
+
+  ticketId        Int
+  ticket          Ticket   @relation(fields: [ticketId], references: [id])
+
+  userId          Int
+  user            User     @relation(fields: [userId], references: [id])
+
+  message         String
+
+  alertLevel      AlertLevel @default(NORMAL)
+  isPinned        Boolean    @default(false)
+  isAcknowledged  Boolean    @default(false)
+
+  attachments     Attachment[]
+
+  createdAt       DateTime @default(now())
+}
+
+model Attachment {
+  id          Int      @id @default(autoincrement())
+
+  ticketId    Int?
+  ticket      Ticket?  @relation(fields: [ticketId], references: [id])
+
+  commentId   Int?
+  comment     Comment? @relation(fields: [commentId], references: [id])
+
+  fileUrl     String
+  fileName    String
+  fileType    String
+
+  uploadedBy  Int
+  user        User     @relation(fields: [uploadedBy], references: [id])
+
+  createdAt   DateTime @default(now())
+}
+
+model TicketActivity {
+  id            Int      @id @default(autoincrement())
+
+  ticketId      Int
+  ticket        Ticket   @relation(fields: [ticketId], references: [id])
+
+  actionType    String
+  description   String
+
+  performedBy   Int
+  user          User     @relation(fields: [performedBy], references: [id])
+
+  createdAt     DateTime @default(now())
+}
+
+model FavoriteFilter {
+  id          Int      @id @default(autoincrement())
+
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+
+  name        String
+  filterQuery Json
+
+  createdAt   DateTime @default(now())
+}
+
+model EmailLog {
+  id          Int      @id @default(autoincrement())
+
+  ticketId    Int
+  ticket      Ticket   @relation(fields: [ticketId], references: [id])
+
+  toUserId    Int
+  user        User     @relation(fields: [toUserId], references: [id])
+
+  subject     String
+  body        String
+
+  status      String
+
+  createdAt   DateTime @default(now())
+}
