@@ -78,7 +78,8 @@ model User {
   teamLeadId      Int?
   teamLead        User?    @relation("UserToUser", fields: [teamLeadId], references: [id])
   subordinates    User[]   @relation("UserToUser")
-
+  managerOf       DepartmentManagers[]
+  
   refreshToken    String?
 
   createdTickets  Ticket[] @relation("TicketCaller")
@@ -86,6 +87,8 @@ model User {
 
   comments        Comment[]
   activities      TicketActivity[]
+  attachments     Attachment[]
+  emailLogs       EmailLog[]
 
   favoriteFilters FavoriteFilter[]
 
