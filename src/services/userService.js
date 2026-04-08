@@ -3,15 +3,21 @@ import { ErrorResponse } from "../utils/responses.js";
 import { UserRole } from "@prisma/client";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { otpService } from "./index.js";
+import { departmentService, regionService, teamService } from "./index.js";
 
 class userService {
     async createUser(data) {
-        const { name, email, password, otp } = data;
+        const { name, email, password, otp, regionId = 1, departmentId = 1, teamId = 1, designation = "Software Engineer" } = data;
 
         const userExist = await userRepo.getUserByEmail(email);
 
         if (userExist) throw new ErrorResponse(400, "User already exists");
-        if (!(await this.verifyOtp({ email, otp }))) throw new ErrorResponse(400, "Invalid Otp");
+        if (!(await otpService.verifyOtp({ email, otp }))) throw new ErrorResponse(400, "Invalid Otp");
+
+        await regionService.getRegion({ regionId });
+        await departmentService.getDepartment({ departmentId });
+        await teamService.getTeam({ teamId });
 
         password = await bcrypt.hash(password, 10);
         const userData = {
@@ -21,36 +27,13 @@ class userService {
             password,
             profileImage: `https://ui-avatars.com/api/?name=${name}`,
             role: UserRole.USER,
-            regionId: 1,
-            teamId: 1,
-            departmentId: 1,
-            designationId: data.designation || "Software Engineer",
+            regionId,
+            teamId,
+            departmentId,
+            designation,
         };
 
         return await userRepo.createUser(userData);
-    }
-
-    async generateOtp(email) {
-        const userExist = await userRepo.getUserByEmail(email);
-        if (!userExist) throw new ErrorResponse(404, "User not found");
-
-        const otp = Math.floor(1000 + Math.random() * 9000);
-        const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-
-        return await userRepo.createOtp({ otp, email, expiresAt });
-    }
-
-    async verifyOtp(data) {
-        const { email, otp } = data;
-
-        const otpExist = await userRepo.getOtp(email);
-
-        if (!otpExist || otpExist.otp !== otp.toString()) throw new ErrorResponse(400, "Invalid Otp");
-        if (otpExist.expiresAt < new Date()) throw new ErrorResponse(400, "Otp Expired");
-
-        await userRepo.deleteOtp(otpExist.id);
-
-        return true;
     }
 
     async loginUser(data) {
@@ -86,6 +69,20 @@ class userService {
         await userRepo.updateUserDetails(userExist.id, { accessToken });
 
         return { accessToken };
+    }
+
+    async resetPassword(data) {
+        const { email, otp, newPasswrod } = data;
+
+        const userExist = await userRepo.getUserByEmail(email);
+        if (!userExist) throw new ErrorResponse(404, "User not found");
+
+        await otpService.verifyOtp({ email, otp });
+
+        newPasswrod = await bcrypt.hash(newPasswrod, 10);
+        await userRepo.updateUserDetails(userExist.id, { password: newPasswrod });
+
+        return { message: "Password reset successfully" };
     }
 
 };

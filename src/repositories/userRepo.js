@@ -2,7 +2,7 @@ import prisma from "../config/prisma.js";
 
 class userRepo {
     async createUser(data) {
-        return await prisma.user.create({ data });
+        return await prisma.user.create({ data: data });
     }
 
     async getUserByEmail(email) {
@@ -14,7 +14,7 @@ class userRepo {
     }
 
     async createOtp(data) {
-        return await prisma.otp.create({ data });
+        return await prisma.otp.create({ data: data });
     }
 
     async getOtp(email) {
@@ -22,7 +22,7 @@ class userRepo {
     }
 
     async updateUserDetails(userId, data) {
-        return await prisma.user.update({ where: { id: userId }, data });
+        return await prisma.user.update({ where: { id: userId }, data: data });
     }
 
     async deleteOtp(id) {

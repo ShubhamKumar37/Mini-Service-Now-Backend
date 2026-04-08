@@ -1,6 +1,5 @@
-import { userService } from "../services/index.js";
-import { ApiResponse } from "../utils/responses.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
+import { userService, emailService } from "../services/index.js";
+import { ApiResponse, ErrorResponse, asyncHandler } from "../utils/index.js";
 
 class userController {
     createUser = asyncHandler(async (req, res, next) => {
@@ -26,6 +25,24 @@ class userController {
         const { accessToken } = await userService.renewAccessToken(req);
 
         return new ApiResponse(200, "Access Token renewed successfully", { accessToken });
+    });
+
+    sendOtpSignUp = asyncHandler(async (req, res, next) => {
+        const { message } = await emailService.sendOtpForSignup(req.body);
+
+        return new ApiResponse(200, message);
+    });
+
+    sendOtpResetPassword = asyncHandler(async (req, res, next) => {
+        const { message } = await emailService.sendOtpForResetPassword(req.body);
+
+        return new ApiResponse(200, message);
+    });
+
+    resetPassword = asyncHandler(async (req, res, next) => {
+        const { message } = await userService.resetPassword(req.body);
+
+        return new ApiResponse(200, message);
     });
 
 };
